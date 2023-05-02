@@ -60,32 +60,13 @@ def notification():
         notification = Notification()
         notification.message = request.form['message']
         notification.subject = request.form['subject']
-        notification.status = 'Notifications submitted'
         notification.submitted_date = datetime.utcnow()
+        notification.status = 'Notifications submitted'
 
         try:
             db.session.add(notification)
             db.session.commit()
-
-            ##################################################
-            ## TODO: Refactor This logic into an Azure Function
-            ## Code below will be replaced by a message queue
-            #################################################
-            attendees = Attendee.query.all()
-
-            for attendee in attendees:
-                subject = '{}: {}'.format(attendee.first_name, notification.subject)
-                send_email(attendee.email, subject, notification.message)
-
-            notification.completed_date = datetime.utcnow()
-            notification.status = 'Notified {} attendees'.format(len(attendees))
-            db.session.commit()
-            # TODO Call servicebus queue_client to enqueue notification ID
-
-            #################################################
-            ## END of TODO
-            #################################################
-
+            queue_client.send(Message(f"{notification.id}"))
             return redirect('/Notifications')
         except :
             logging.error('log unable to save notification')
